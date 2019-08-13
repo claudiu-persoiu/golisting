@@ -1,1 +1,4 @@
 bin/
+main-packr.go
+golisting
+packrd/
