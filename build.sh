@@ -1,3 +1,5 @@
+packr2
+
 GOOS=linux GOARCH=arm go build -o bin/golisting-linux-arm
 GOOS=linux GOARCH=amd64 go build -o bin/golisting-linux-amd64
 GOOS=linux GOARCH=386 go build -o bin/golisting-linux-368

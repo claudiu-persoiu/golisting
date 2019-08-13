@@ -13,7 +13,7 @@ import (
 	"path/filepath"
 	"text/template"
 
-	"github.com/gobuffalo/packr"
+	"github.com/gobuffalo/packr/v2"
 
 	"github.com/nfnt/resize"
 )
@@ -28,8 +28,8 @@ func main() {
 	address := flag.String("address", ":5000", "server address")
 	flag.Parse()
 
-	publicBox := packr.NewBox("./public")
-	templateBox := packr.NewBox("./template")
+	publicBox := packr.New("public", "./public")
+	templateBox := packr.New("template", "./template")
 
 	dir := filepath.Join(".", *path)
 
