@@ -11,6 +11,8 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
+	"sync"
 	"text/template"
 
 	"github.com/gobuffalo/packr/v2"
@@ -47,16 +49,36 @@ func main() {
 		}
 	}
 
+	fileNames := make(chan string, 1000)
+
+	var waitgroup sync.WaitGroup
+
+	for i := 0; i < runtime.GOMAXPROCS(0); i++ {
+		go func() {
+			for j := range fileNames {
+				createThumbs(dir, j)
+				waitgroup.Done()
+			}
+		}()
+	}
+
 	var images []string
 
 	for _, f := range files {
 		ext := filepath.Ext(f.Name())
 		if ext == ".jpg" || ext == ".png" {
+			waitgroup.Add(1)
 			fmt.Println(f.Name())
 			images = append(images, f.Name())
-			createThumbs(dir, f.Name())
+			fileNames <- f.Name()
 		}
 	}
+
+	close(fileNames)
+
+	waitgroup.Wait()
+
+	runtime.GC()
 
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(publicBox)))
 	http.Handle("/photo/", http.StripPrefix("/photo/", http.FileServer(http.Dir(*path))))
