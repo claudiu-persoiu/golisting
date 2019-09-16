@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"sync"
 	"text/template"
 
@@ -22,6 +23,24 @@ import (
 
 type PageData struct {
 	Images []string
+}
+
+type byName []os.FileInfo
+
+func (s byName) Len() int {
+	return len(s)
+}
+
+func (s byName) Swap(i, j int) {
+	s[i], s[j] = s[j], s[i]
+}
+
+func (s byName) Less(i, j int) bool {
+	if len(s[i].Name()) != len(s[j].Name()) {
+		return len(s[i].Name()) < len(s[j].Name())
+	}
+
+	return s[i].Name() < s[j].Name()
 }
 
 func main() {
@@ -63,6 +82,8 @@ func main() {
 	}
 
 	var images []string
+
+	sort.Sort(byName(files))
 
 	for _, f := range files {
 		ext := filepath.Ext(f.Name())
