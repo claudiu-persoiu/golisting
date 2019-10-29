@@ -53,10 +53,21 @@ func main() {
 	output := flag.Bool("output", false, "output location if html is generated and server will not start")
 	flag.Parse()
 
+	images := generateThumbs(path)
+
 	publicBox := packr.New("public", "./public")
 	templateBox := packr.New("template", "./template")
 
-	dir := filepath.Join(".", *path)
+	if !*output {
+		startSever(publicBox, templateBox, path, &images, address)
+	} else {
+		outputFiles(publicBox, templateBox, path, &images)
+	}
+}
+
+func generateThumbs(sourcePath *string) []string {
+
+	dir := filepath.Join(".", *sourcePath)
 
 	files, err := ioutil.ReadDir(dir)
 	if err != nil {
@@ -103,11 +114,7 @@ func main() {
 
 	runtime.GC()
 
-	if !*output {
-		startSever(publicBox, templateBox, path, &images, address)
-	} else {
-		outputFiles(publicBox, templateBox, path, &images)
-	}
+	return images
 }
 
 func startSever(publicBox, templateBox *packr.Box, path *string, images *[]string, address *string) {
