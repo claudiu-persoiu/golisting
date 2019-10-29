@@ -6,10 +6,12 @@ import (
 	"image"
 	"image/jpeg"
 	"image/png"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"runtime"
 	"sort"
@@ -23,6 +25,7 @@ import (
 
 type PageData struct {
 	Images []string
+	Path   string
 }
 
 type byName []os.FileInfo
@@ -47,6 +50,7 @@ func main() {
 
 	path := flag.String("path", "./", "path to images")
 	address := flag.String("address", ":5000", "server address")
+	output := flag.Bool("output", false, "output location if html is generated and server will not start")
 	flag.Parse()
 
 	publicBox := packr.New("public", "./public")
@@ -61,9 +65,7 @@ func main() {
 
 	targetPath := filepath.Join(dir, ".thumb")
 	if _, err := os.Stat(targetPath); err != nil {
-		err := os.Mkdir(targetPath, os.ModePerm)
-
-		if err != nil {
+		if err := os.Mkdir(targetPath, os.ModePerm); err != nil {
 			log.Fatal(err)
 		}
 	}
@@ -101,24 +103,20 @@ func main() {
 
 	runtime.GC()
 
+	if !*output {
+		startSever(publicBox, templateBox, path, &images, address)
+	} else {
+		outputFiles(publicBox, templateBox, path, &images)
+	}
+}
+
+func startSever(publicBox, templateBox *packr.Box, path *string, images *[]string, address *string) {
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(publicBox)))
 	http.Handle("/photo/", http.StripPrefix("/photo/", http.FileServer(http.Dir(*path))))
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		data := &PageData{Images: *images, Path: "photo/"}
 
-		b, err := templateBox.FindString("index.html")
-		if err != nil {
-			log.Panic(err)
-		}
-
-		t, err := template.New("hello").Parse(b)
-
-		if err != nil {
-			log.Panic(err)
-		}
-
-		data := &PageData{Images: images}
-
-		err = t.Execute(w, *data)
+		err := outputHTML(templateBox, "index.html", data, w)
 
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -127,6 +125,85 @@ func main() {
 
 	log.Printf("Starting listtening on %s... \n", *address)
 	log.Fatal(http.ListenAndServe(*address, nil))
+}
+
+func outputFiles(publicBox, templateBox *packr.Box, path *string, images *[]string) {
+	data := &PageData{Images: *images}
+
+	targetPath := filepath.Join(*path, "index.html")
+
+	out, err := os.Create(targetPath)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer out.Close()
+
+	if err := outputHTML(templateBox, "index.html", data, out); err != nil {
+		log.Fatal(err)
+	}
+
+	if err := copyStaticFiles(publicBox, path); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func copyStaticFiles(publicBox *packr.Box, targetPath *string) error {
+
+	staticTarget := filepath.Join(*targetPath, "static")
+	if _, err := os.Stat(staticTarget); err != nil {
+		if err := os.Mkdir(staticTarget, os.ModePerm); err != nil {
+			log.Fatal(err)
+		}
+	}
+
+	return publicBox.Walk(func(fileName string, fileContent packr.File) error {
+		dir := path.Dir(fileName)
+
+		targetdir := filepath.Join(staticTarget, dir)
+		if _, err := os.Stat(targetdir); err != nil {
+			if err := os.Mkdir(targetdir, os.ModePerm); err != nil {
+				return err
+			}
+		}
+
+		target := filepath.Join(staticTarget, fileName)
+		out, err := os.Create(target)
+		if err != nil {
+			return err
+		}
+		defer out.Close()
+
+		buf := make([]byte, 1000)
+		for {
+			n, err := fileContent.Read(buf)
+			if err != nil && err != io.EOF {
+				return err
+			}
+			if n == 0 {
+				break
+			}
+
+			if _, err := out.Write(buf[:n]); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+func outputHTML(templateBox *packr.Box, file string, pageData *PageData, wr io.Writer) error {
+	b, err := templateBox.FindString(file)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	t, err := template.New("hello").Parse(b)
+
+	if err != nil {
+		log.Panic(err)
+	}
+
+	return t.Execute(wr, *pageData)
 }
 
 func createThumbs(path string, name string) {

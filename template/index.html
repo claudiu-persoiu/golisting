@@ -20,13 +20,13 @@
 <body>
     <h1>Go listing</h1>
     <div class="photos">
-        {{range .Images}}
+        {{range $.Images}}
         <div>
-            <a href="photo/.thumb/{{.}}.800.thumb" target="_blank"
+            <a href="{{$.Path}}.thumb/{{.}}.800.thumb" target="_blank"
                 data-lightbox="photos">
-                <img src="photo/.thumb/{{.}}.200.thumb" />
+                <img src="{{$.Path}}.thumb/{{.}}.200.thumb" />
             </a><br />
-            <a href="photo/{{.}}" target="_blank">original</a>
+            <a href="{{$.Path}}{{.}}" target="_blank">original</a>
         </div>
         {{end}}
     </div>
