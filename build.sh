@@ -7,4 +7,4 @@ GOOS=windows GOARCH=amd64 go build -o bin/golisting-win-amd64
 GOOS=windows GOARCH=386 go build -o bin/golisting-win-368
 
 GOOS=darwin GOARCH=amd64 go build -o bin/golisting-darwin-amd64
-GOOS=darwin GOARCH=386 go build -o bin/golisting-darwin-368
+GOOS=darwin GOARCH=arm64 go build -o bin/golisting-darwin-amr64
