@@ -1,24 +1,24 @@
 package main
 
 import (
+	"embed"
 	"flag"
 	"fmt"
 	"image"
 	"image/jpeg"
 	"image/png"
 	"io"
+	"io/fs"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
-	"path"
+
 	"path/filepath"
 	"runtime"
 	"sort"
 	"sync"
 	"text/template"
-
-	"github.com/gobuffalo/packr/v2"
 
 	"github.com/nfnt/resize"
 )
@@ -46,6 +46,12 @@ func (s byName) Less(i, j int) bool {
 	return s[i].Name() < s[j].Name()
 }
 
+//go:embed public
+var publicBox embed.FS
+
+//go:embed template
+var templateBox embed.FS
+
 func main() {
 
 	path := flag.String("path", "./", "path to images")
@@ -54,9 +60,6 @@ func main() {
 	flag.Parse()
 
 	images := generateThumbs(path)
-
-	publicBox := packr.New("public", "./public")
-	templateBox := packr.New("template", "./template")
 
 	if !*output {
 		startSever(publicBox, templateBox, path, &images, address)
@@ -117,8 +120,8 @@ func generateThumbs(sourcePath *string) []string {
 	return images
 }
 
-func startSever(publicBox, templateBox *packr.Box, path *string, images *[]string, address *string) {
-	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(publicBox)))
+func startSever(publicBox, templateBox embed.FS, path *string, images *[]string, address *string) {
+	http.Handle("/public/", http.FileServer(http.FS(publicBox)))
 	http.Handle("/photo/", http.StripPrefix("/photo/", http.FileServer(http.Dir(*path))))
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		data := &PageData{Images: *images, Path: "photo/"}
@@ -130,11 +133,11 @@ func startSever(publicBox, templateBox *packr.Box, path *string, images *[]strin
 		}
 	})
 
-	log.Printf("Starting listtening on %s... \n", *address)
+	log.Printf("Starting listening on %s... \n", *address)
 	log.Fatal(http.ListenAndServe(*address, nil))
 }
 
-func outputFiles(publicBox, templateBox *packr.Box, path *string, images *[]string) {
+func outputFiles(publicBox, templateBox embed.FS, path *string, images *[]string) {
 	data := &PageData{Images: *images}
 
 	targetPath := filepath.Join(*path, "index.html")
@@ -154,60 +157,56 @@ func outputFiles(publicBox, templateBox *packr.Box, path *string, images *[]stri
 	}
 }
 
-func copyStaticFiles(publicBox *packr.Box, targetPath *string) error {
-
-	staticTarget := filepath.Join(*targetPath, "static")
+func copyStaticFiles(publicBox embed.FS, targetPath *string) error {
+	staticTarget := filepath.Join(*targetPath, "public")
 	if _, err := os.Stat(staticTarget); err != nil {
 		if err := os.Mkdir(staticTarget, os.ModePerm); err != nil {
-			log.Fatal(err)
+			log.Fatal("aici", err)
 		}
 	}
 
-	return publicBox.Walk(func(fileName string, fileContent packr.File) error {
-		dir := path.Dir(fileName)
-
-		targetdir := filepath.Join(staticTarget, dir)
-		if _, err := os.Stat(targetdir); err != nil {
-			if err := os.Mkdir(targetdir, os.ModePerm); err != nil {
-				return err
-			}
-		}
-
-		target := filepath.Join(staticTarget, fileName)
-		out, err := os.Create(target)
+	return fs.WalkDir(publicBox, ".", func(fileName string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-		defer out.Close()
 
-		buf := make([]byte, 1000)
-		for {
-			n, err := fileContent.Read(buf)
-			if err != nil && err != io.EOF {
-				return err
-			}
-			if n == 0 {
-				break
-			}
-
-			if _, err := out.Write(buf[:n]); err != nil {
-				return err
-			}
+		if fileName == "." {
+			return nil
 		}
+
+		if d.IsDir() {
+			if _, err := os.Stat(fileName); err != nil {
+				if err := os.Mkdir(fileName, os.ModePerm); err != nil {
+					return err
+				}
+			}
+		} else {
+			out, err := os.Create(fileName)
+			if err != nil {
+				return err
+			}
+			defer out.Close()
+
+			buf, err := fs.ReadFile(publicBox, fileName)
+			if err != nil {
+				return err
+			}
+
+			if _, err := out.Write(buf); err != nil {
+				return err
+			}
+
+		}
+
 		return nil
 	})
 }
 
-func outputHTML(templateBox *packr.Box, file string, pageData *PageData, wr io.Writer) error {
-	b, err := templateBox.FindString(file)
-	if err != nil {
-		log.Panic(err)
-	}
-
-	t, err := template.New("hello").Parse(b)
+func outputHTML(templateBox embed.FS, file string, pageData *PageData, wr io.Writer) error {
+	t, err := template.ParseFS(templateBox, "template/index.html")
 
 	if err != nil {
-		log.Panic(err)
+		log.Fatal(err)
 	}
 
 	return t.Execute(wr, *pageData)
