@@ -9,18 +9,17 @@ import (
 	"image/png"
 	"io"
 	"io/fs"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
-
 	"path/filepath"
 	"runtime"
 	"sort"
 	"sync"
 	"text/template"
+	"time"
 
-	"github.com/nfnt/resize"
+	"golang.org/x/image/draw"
 )
 
 type PageData struct {
@@ -28,7 +27,7 @@ type PageData struct {
 	Path   string
 }
 
-type byName []os.FileInfo
+type byName []os.DirEntry
 
 func (s byName) Len() int {
 	return len(s)
@@ -59,7 +58,14 @@ func main() {
 	output := flag.Bool("output", false, "output location if html is generated and server will not start")
 	flag.Parse()
 
-	images := generateThumbs(path)
+	startTime := time.Now()
+
+	dir := filepath.Join(".", *path)
+	images := getImages(dir)
+
+	generateThumbs(dir, images)
+
+	log.Printf("Finished thumbnails in %v\n", time.Now().Sub(startTime))
 
 	if !*output {
 		startSever(publicBox, templateBox, path, &images, address)
@@ -68,14 +74,27 @@ func main() {
 	}
 }
 
-func generateThumbs(sourcePath *string) []string {
+func getImages(dir string) []string {
 
-	dir := filepath.Join(".", *sourcePath)
-
-	files, err := ioutil.ReadDir(dir)
+	files, err := os.ReadDir(dir)
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	sort.Sort(byName(files))
+
+	var images []string
+	for _, f := range files {
+		ext := filepath.Ext(f.Name())
+		if ext == ".jpg" || ext == ".png" {
+			images = append(images, f.Name())
+			fmt.Println(f.Name())
+		}
+	}
+	return images
+}
+
+func generateThumbs(dir string, images []string) {
 
 	targetPath := filepath.Join(dir, ".thumb")
 	if _, err := os.Stat(targetPath); err != nil {
@@ -84,40 +103,27 @@ func generateThumbs(sourcePath *string) []string {
 		}
 	}
 
-	fileNames := make(chan string, 1000)
+	fileNames := make(chan string, len(images))
 
-	var waitgroup sync.WaitGroup
+	var wg sync.WaitGroup
 
-	for i := 0; i < runtime.GOMAXPROCS(0); i++ {
+	for range runtime.GOMAXPROCS(0) {
 		go func() {
 			for j := range fileNames {
 				createThumbs(dir, j)
-				waitgroup.Done()
+				wg.Done()
 			}
 		}()
 	}
 
-	var images []string
-
-	sort.Sort(byName(files))
-
-	for _, f := range files {
-		ext := filepath.Ext(f.Name())
-		if ext == ".jpg" || ext == ".png" {
-			waitgroup.Add(1)
-			fmt.Println(f.Name())
-			images = append(images, f.Name())
-			fileNames <- f.Name()
-		}
+	for _, f := range images {
+		wg.Add(1)
+		fileNames <- f
 	}
 
 	close(fileNames)
 
-	waitgroup.Wait()
-
-	runtime.GC()
-
-	return images
+	wg.Wait()
 }
 
 func startSever(publicBox, templateBox embed.FS, path *string, images *[]string, address *string) {
@@ -161,7 +167,7 @@ func copyStaticFiles(publicBox embed.FS, targetPath *string) error {
 	staticTarget := filepath.Join(*targetPath, "public")
 	if _, err := os.Stat(staticTarget); err != nil {
 		if err := os.Mkdir(staticTarget, os.ModePerm); err != nil {
-			log.Fatal("aici", err)
+			log.Fatal(err)
 		}
 	}
 
@@ -213,26 +219,28 @@ func outputHTML(templateBox embed.FS, file string, pageData *PageData, wr io.Wri
 }
 
 func createThumbs(path string, name string) {
-	var img image.Image
+	var small, big bool
 
 	targetPath := filepath.Join(path, ".thumb")
 
-	thumb200Path := filepath.Join(targetPath, "/"+name+".200.thumb")
-	if _, err := os.Stat(thumb200Path); err != nil {
-		if img == nil {
-			img = openImage(filepath.Join(path, name))
-		}
-
-		createThumb(img, 200, thumb200Path)
+	thumbSmallPath := filepath.Join(targetPath, "/"+name+".small.thumb")
+	if inf, _ := os.Stat(thumbSmallPath); inf == nil {
+		small = true
 	}
 
-	thumb800Path := filepath.Join(targetPath, "/"+name+".800.thumb")
-	if _, err := os.Stat(thumb800Path); err != nil {
-		if img == nil {
-			img = openImage(filepath.Join(path, name))
-		}
+	thumbBigPath := filepath.Join(targetPath, "/"+name+".big.thumb")
+	if inf, _ := os.Stat(thumbBigPath); inf == nil {
+		big = true
+	}
 
-		createThumb(img, 800, thumb800Path)
+	if small || big {
+		img := openImage(filepath.Join(path, name))
+		if small {
+			createThumb(img, 200, thumbSmallPath)
+		}
+		if big {
+			createThumb(img, 800, thumbBigPath)
+		}
 	}
 }
 
@@ -241,6 +249,7 @@ func openImage(path string) image.Image {
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer file.Close()
 
 	var img image.Image
 
@@ -255,19 +264,20 @@ func openImage(path string) image.Image {
 	if err != nil {
 		log.Fatal(err)
 	}
-	file.Close()
 
 	return img
 }
 
-func createThumb(img image.Image, size uint, target string) {
-	m := resize.Resize(0, size, img, resize.Lanczos3)
-
+func createThumb(src image.Image, size int, target string) {
 	out, err := os.Create(target)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer out.Close()
 
-	jpeg.Encode(out, m, nil)
+	dst := image.NewRGBA(image.Rect(0, 0, (src.Bounds().Max.X*size)/src.Bounds().Max.Y, size))
+
+	draw.BiLinear.Scale(dst, dst.Rect, src, src.Bounds(), draw.Over, nil)
+
+	jpeg.Encode(out, dst, nil)
 }

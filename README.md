@@ -4,7 +4,7 @@ The purpose of the files is to generate a simple photo gallery index in the fold
 
 ## Instructions
 
-Just from the releases section https://github.com/claudiu-persoiu/golisting/releases just download the latest release for your system and run it with the appropriate options (see options setions below).
+Just from the releases section https://github.com/claudiu-persoiu/golisting/releases just download the latest release for your system and run it with the appropriate options (see options section below).
 
 $ ./golisting-xxxx-xxx -path="/path/to/photos"
 
