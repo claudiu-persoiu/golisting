@@ -10,6 +10,6 @@ $ ./golisting-xxxx-xxx -path="/path/to/photos"
 
 ### Options
 * -help - display the help menu;
-* -path - (optional) path to folder, defaul to current folder;
+* -path - (optional) path to folder, default to current folder;
 * -address - (optional) address/port on which to run the server default to port 5000;
 * -output - (optional) output html files and don't start the web server.
