@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"image"
 	"image/jpeg"
-	"image/png"
 	"io"
 	"io/fs"
 	"log"
@@ -21,6 +20,9 @@ import (
 
 	"golang.org/x/image/draw"
 )
+
+const smallThumbSize = 200
+const bigThumbSize = 800
 
 type PageData struct {
 	Images []string
@@ -236,10 +238,10 @@ func createThumbs(path string, name string) {
 	if small || big {
 		img := openImage(filepath.Join(path, name))
 		if small {
-			createThumb(img, 200, thumbSmallPath)
+			createThumb(img, smallThumbSize, thumbSmallPath)
 		}
 		if big {
-			createThumb(img, 800, thumbBigPath)
+			createThumb(img, bigThumbSize, thumbBigPath)
 		}
 	}
 }
@@ -251,15 +253,7 @@ func openImage(path string) image.Image {
 	}
 	defer file.Close()
 
-	var img image.Image
-
-	ext := filepath.Ext(path)
-
-	if ext == ".jpg" {
-		img, err = jpeg.Decode(file)
-	} else if ext == ".png" {
-		img, err = png.Decode(file)
-	}
+	img, _, err := image.Decode(file)
 
 	if err != nil {
 		log.Fatal(err)
