@@ -15,10 +15,15 @@ func GetImages(dir string) []string {
 		log.Fatal(err)
 	}
 
+	return filterAndSortImages(files)
+}
+
+func filterAndSortImages(files []os.DirEntry) []string {
+
 	var images []string
 	for _, f := range files {
 		ext := filepath.Ext(f.Name())
-		if ext == ".jpg" || ext == ".png" {
+		if !f.IsDir() && (ext == ".jpg" || ext == ".png") {
 			images = append(images, f.Name())
 		}
 	}
