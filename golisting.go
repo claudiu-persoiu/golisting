@@ -110,7 +110,7 @@ func generateThumbs(dir string, images []string) {
 	for range runtime.GOMAXPROCS(0) {
 		go func() {
 			for j := range fileNames {
-				createThumbs(dir, j)
+				createThumbs(dir, targetPath, j)
 				wg.Done()
 			}
 		}()
@@ -223,10 +223,8 @@ func outputHTML(templateBox embed.FS, file string, pageData *PageData, wr io.Wri
 	return t.Execute(wr, *pageData)
 }
 
-func createThumbs(path string, name string) {
+func createThumbs(path, targetPath string, name string) {
 	var small, big bool
-
-	targetPath := filepath.Join(path, ".thumb")
 
 	thumbSmallPath := filepath.Join(targetPath, name+".small.thumb")
 	if inf, _ := os.Stat(thumbSmallPath); inf == nil {
