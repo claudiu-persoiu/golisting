@@ -69,9 +69,9 @@ func main() {
 	log.Printf("Finished thumbnails in %v\n", time.Now().Sub(startTime))
 
 	if !*output {
-		startSever(publicBox, templateBox, path, &images, address)
+		startSever(publicBox, templateBox, path, images, *address)
 	} else {
-		outputFiles(publicBox, templateBox, path, &images)
+		outputFiles(publicBox, templateBox, path, images)
 	}
 }
 
@@ -126,11 +126,11 @@ func generateThumbs(dir string, images []string) {
 	wg.Wait()
 }
 
-func startSever(publicBox, templateBox embed.FS, path *string, images *[]string, address *string) {
+func startSever(publicBox, templateBox embed.FS, path *string, images []string, address string) {
 	http.Handle("/public/", http.FileServer(http.FS(publicBox)))
 	http.Handle("/photo/", http.StripPrefix("/photo/", http.FileServer(http.Dir(*path))))
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		data := &PageData{Images: *images, Path: "photo/"}
+		data := &PageData{Images: images, Path: "photo/"}
 
 		err := outputHTML(templateBox, "index.html", data, w)
 
@@ -139,12 +139,12 @@ func startSever(publicBox, templateBox embed.FS, path *string, images *[]string,
 		}
 	})
 
-	log.Printf("Starting listening on %s... \n", *address)
-	log.Fatal(http.ListenAndServe(*address, nil))
+	log.Printf("Starting listening on %s... \n", address)
+	log.Fatal(http.ListenAndServe(address, nil))
 }
 
-func outputFiles(publicBox, templateBox embed.FS, path *string, images *[]string) {
-	data := &PageData{Images: *images}
+func outputFiles(publicBox, templateBox embed.FS, path *string, images []string) {
+	data := &PageData{Images: images}
 
 	targetPath := filepath.Join(*path, "index.html")
 
