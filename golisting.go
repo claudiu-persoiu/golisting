@@ -3,7 +3,6 @@ package main
 import (
 	"embed"
 	"flag"
-	"fmt"
 	"image"
 	"image/jpeg"
 	"io"
@@ -90,7 +89,6 @@ func getImages(dir string) []string {
 		ext := filepath.Ext(f.Name())
 		if ext == ".jpg" || ext == ".png" {
 			images = append(images, f.Name())
-			fmt.Println(f.Name())
 		}
 	}
 	return images
@@ -182,28 +180,33 @@ func copyStaticFiles(publicBox embed.FS, targetPath *string) error {
 			return nil
 		}
 
+		target := filepath.Join(*targetPath, fileName)
+
 		if d.IsDir() {
-			if _, err := os.Stat(fileName); err != nil {
-				if err := os.Mkdir(fileName, os.ModePerm); err != nil {
+			if _, err := os.Stat(target); err != nil {
+				if err := os.Mkdir(target, os.ModePerm); err != nil {
 					return err
 				}
 			}
 		} else {
-			out, err := os.Create(fileName)
+			out, err := os.Create(target)
 			if err != nil {
 				return err
 			}
 			defer out.Close()
 
-			buf, err := fs.ReadFile(publicBox, fileName)
+			in, err := os.Open(fileName)
+			if err != nil {
+				return err
+			}
+			defer in.Close()
+
+			_, err = io.Copy(out, in)
 			if err != nil {
 				return err
 			}
 
-			if _, err := out.Write(buf); err != nil {
-				return err
-			}
-
+			return out.Sync()
 		}
 
 		return nil
@@ -225,12 +228,12 @@ func createThumbs(path string, name string) {
 
 	targetPath := filepath.Join(path, ".thumb")
 
-	thumbSmallPath := filepath.Join(targetPath, "/"+name+".small.thumb")
+	thumbSmallPath := filepath.Join(targetPath, name+".small.thumb")
 	if inf, _ := os.Stat(thumbSmallPath); inf == nil {
 		small = true
 	}
 
-	thumbBigPath := filepath.Join(targetPath, "/"+name+".big.thumb")
+	thumbBigPath := filepath.Join(targetPath, name+".big.thumb")
 	if inf, _ := os.Stat(thumbBigPath); inf == nil {
 		big = true
 	}
