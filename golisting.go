@@ -35,7 +35,11 @@ func main() {
 	dir := filepath.Join(".", *path)
 	imgs := images.GetImages(dir)
 
-	images.GenerateThumbs(dir, imgs)
+	noThumbs := images.GenerateThumbs(dir, imgs)
+
+	if len(noThumbs) > 0 {
+		imgs = images.FilterOutImages(imgs, noThumbs)
+	}
 
 	if !*output {
 		server.StartSever(publicBox, templateBox, path, imgs, *address)

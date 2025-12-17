@@ -5,6 +5,7 @@ import (
 	"html/template"
 	"io"
 	"log"
+	"os"
 )
 
 type PageData struct {
@@ -20,4 +21,10 @@ func OutputHTML(templateBox embed.FS, file string, pageData *PageData, wr io.Wri
 	}
 
 	return t.Execute(wr, *pageData)
+}
+
+func FileExists(path string) bool {
+	_ , err := os.Stat(path)
+
+	return !os.IsNotExist(err)
 }
