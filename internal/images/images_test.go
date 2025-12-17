@@ -46,3 +46,16 @@ func TestFilterAndSortImages(t *testing.T) {
 		t.Errorf("Expected %v, but got %v", expected, output)
 	}
 }
+
+func TestFilterOutImages(t *testing.T) {
+	allImages := []string{"img1.jpg", "img2.png", "img3.jpg", "img4.png"}
+	errorImages := []string{"img2.png", "img4.png"}
+
+	output := FilterOutImages(allImages, errorImages)
+
+	expected := []string{"img1.jpg", "img3.jpg"}
+
+	if !slices.Equal(expected, output) {
+		t.Errorf("Expected %v, but got %v", expected, output)
+	}
+}
