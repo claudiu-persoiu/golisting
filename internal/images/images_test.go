@@ -31,6 +31,7 @@ func (m mockDirEntry) Info() (fs.FileInfo, error) {
 func TestFilterAndSortImages(t *testing.T) {
 
 	input := []os.DirEntry{
+		mockDirEntry{name: "img3.jpg"},
 		mockDirEntry{name: "img10.png"},
 		mockDirEntry{name: "img2.jpg"},
 		mockDirEntry{name: "document.pdf"},
@@ -39,7 +40,7 @@ func TestFilterAndSortImages(t *testing.T) {
 
 	output := filterAndSortImages(input)
 
-	expected := []string{"img2.jpg", "img10.png"}
+	expected := []string{"img2.jpg", "img3.jpg", "img10.png"}
 
 	if !slices.Equal(expected, output) {
 		t.Errorf("Expected %v, but got %v", expected, output)

@@ -38,3 +38,9 @@ func filterAndSortImages(files []os.DirEntry) []string {
 
 	return images
 }
+
+func FilterOutImages(allImages, errorImages []string) []string {
+	return slices.DeleteFunc(allImages, func(image string) bool {
+		return slices.Contains(errorImages, image)
+	})
+}

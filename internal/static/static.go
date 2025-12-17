@@ -33,7 +33,7 @@ func OutputFiles(publicBox, templateBox embed.FS, path *string, images []string)
 
 func copyStaticFiles(publicBox embed.FS, targetPath *string) error {
 	staticTarget := filepath.Join(*targetPath, "public")
-	if _, err := os.Stat(staticTarget); err != nil {
+	if internal.FileExists(staticTarget) {
 		if err := os.Mkdir(staticTarget, os.ModePerm); err != nil {
 			log.Fatal(err)
 		}
@@ -51,7 +51,7 @@ func copyStaticFiles(publicBox embed.FS, targetPath *string) error {
 		target := filepath.Join(*targetPath, fileName)
 
 		if d.IsDir() {
-			if _, err := os.Stat(target); err != nil {
+			if !internal.FileExists(target) {
 				if err := os.Mkdir(target, os.ModePerm); err != nil {
 					return err
 				}

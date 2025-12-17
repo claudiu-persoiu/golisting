@@ -11,31 +11,37 @@ import (
 	"sync"
 	"time"
 
+	"github.com/claudiu-persoiu/golisting/internal"
 	"golang.org/x/image/draw"
 )
 
 const smallThumbSize = 200
 const bigThumbSize = 800
 
-func GenerateThumbs(dir string, images []string) {
+func GenerateThumbs(dir string, images []string) []string {
 
 	startTime := time.Now()
 
 	targetPath := filepath.Join(dir, ".thumb")
-	if _, err := os.Stat(targetPath); err != nil {
+	if !internal.FileExists(targetPath) {
 		if err := os.Mkdir(targetPath, os.ModePerm); err != nil {
 			log.Fatal(err)
 		}
 	}
 
 	fileNames := make(chan string, len(images))
+	errorImagesQueue := make(chan string)
+	var errorImagesSlice []string
 
 	var wg sync.WaitGroup
 
 	for range runtime.GOMAXPROCS(0) {
 		go func() {
-			for j := range fileNames {
-				createThumbs(dir, targetPath, j)
+			for fileName := range fileNames {
+				if err := createThumbs(dir, targetPath, fileName); err != nil {
+					log.Println("Error creating thumbnail for ", fileName, ": ", err)
+					errorImagesQueue <- fileName
+				}
 				wg.Done()
 			}
 		}()
@@ -48,55 +54,68 @@ func GenerateThumbs(dir string, images []string) {
 
 	close(fileNames)
 
+	go func() {
+		for img := range errorImagesQueue {
+			errorImagesSlice = append(errorImagesSlice, img)
+		}
+	}()
+
 	wg.Wait()
+	close(errorImagesQueue)
 
 	slog.Info("Finished thumbnails in " + time.Now().Sub(startTime).String())
+
+	return errorImagesSlice
 }
 
-func createThumbs(path, targetPath string, name string) {
+func createThumbs(path, targetPath string, name string) error {
 	var small, big bool
 
 	thumbSmallPath := filepath.Join(targetPath, name+".small.thumb")
-	if inf, _ := os.Stat(thumbSmallPath); inf == nil {
-		small = true
-	}
+	small = !internal.FileExists(thumbSmallPath)
 
 	thumbBigPath := filepath.Join(targetPath, name+".big.thumb")
-	if inf, _ := os.Stat(thumbBigPath); inf == nil {
-		big = true
-	}
+	big = !internal.FileExists(thumbBigPath)
 
 	if small || big {
-		img := openImage(filepath.Join(path, name))
+		img, err := openImage(filepath.Join(path, name))
+		if err != nil {
+			return err
+		}
 		if small {
-			createThumb(img, smallThumbSize, thumbSmallPath)
+			if err := createThumb(img, smallThumbSize, thumbSmallPath); err != nil {
+				return err
+			}
 		}
 		if big {
-			createThumb(img, bigThumbSize, thumbBigPath)
+			if err := createThumb(img, bigThumbSize, thumbBigPath); err != nil {
+				return err
+			}
 		}
 	}
+	return nil
 }
 
-func openImage(path string) image.Image {
+func openImage(path string) (image.Image, error) {
 	file, err := os.Open(path)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 	defer file.Close()
 
 	img, _, err := image.Decode(file)
 
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
-	return img
+	return img, nil
 }
 
-func createThumb(src image.Image, size int, target string) {
+func createThumb(src image.Image, size int, target string) error {
 	out, err := os.Create(target)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	defer out.Close()
 
@@ -104,5 +123,8 @@ func createThumb(src image.Image, size int, target string) {
 
 	draw.BiLinear.Scale(dst, dst.Rect, src, src.Bounds(), draw.Over, nil)
 
-	jpeg.Encode(out, dst, nil)
+	if err := jpeg.Encode(out, dst, nil); err != nil {
+		return err
+	}
+	return nil
 }
