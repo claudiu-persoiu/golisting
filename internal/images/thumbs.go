@@ -23,10 +23,8 @@ func GenerateThumbs(dir string, images []string) []string {
 	startTime := time.Now()
 
 	targetPath := filepath.Join(dir, ".thumb")
-	if !internal.FileExists(targetPath) {
-		if err := os.Mkdir(targetPath, os.ModePerm); err != nil {
-			log.Fatal(err)
-		}
+	if err := internal.CreateDirIfNotExists(targetPath); err != nil {
+		log.Fatal(err)
 	}
 
 	fileNames := make(chan string, len(images))

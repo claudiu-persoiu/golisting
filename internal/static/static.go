@@ -33,10 +33,9 @@ func OutputFiles(publicBox, templateBox embed.FS, path *string, images []string)
 
 func copyStaticFiles(publicBox embed.FS, targetPath *string) error {
 	staticTarget := filepath.Join(*targetPath, "public")
-	if internal.FileExists(staticTarget) {
-		if err := os.Mkdir(staticTarget, os.ModePerm); err != nil {
-			log.Fatal(err)
-		}
+
+	if err := internal.CreateDirIfNotExists(staticTarget); err != nil {
+		log.Fatal(err)
 	}
 
 	return fs.WalkDir(publicBox, ".", func(fileName string, d fs.DirEntry, err error) error {
@@ -51,10 +50,8 @@ func copyStaticFiles(publicBox embed.FS, targetPath *string) error {
 		target := filepath.Join(*targetPath, fileName)
 
 		if d.IsDir() {
-			if !internal.FileExists(target) {
-				if err := os.Mkdir(target, os.ModePerm); err != nil {
-					return err
-				}
+			if err := internal.CreateDirIfNotExists(target); err != nil {
+				return err
 			}
 		} else {
 			out, err := os.Create(target)
