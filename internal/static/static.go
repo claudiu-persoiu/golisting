@@ -60,7 +60,7 @@ func copyStaticFiles(publicBox embed.FS, targetPath *string) error {
 			}
 			defer out.Close()
 
-			in, err := os.Open(fileName)
+			in, err := publicBox.Open(fileName)
 			if err != nil {
 				return err
 			}
