@@ -41,6 +41,8 @@ func main() {
 		imgs = images.FilterOutImages(imgs, noThumbs)
 	}
 
+
+
 	if !*output {
 		server.StartSever(publicBox, templateBox, path, imgs, *address)
 	} else {
