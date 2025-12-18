@@ -4,6 +4,7 @@ import (
 	"io/fs"
 	"os"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -38,7 +39,12 @@ func TestFilterAndSortImages(t *testing.T) {
 		mockDirEntry{name: "document.jpg", isDir: true},
 	}
 
-	output := filterAndSortImages(input)
+	mockImageChecker := func(image string) bool {
+		lowerName := strings.ToLower(image)
+		return strings.HasSuffix(lowerName, ".jpg") || strings.HasSuffix(lowerName, ".png")
+	}
+
+	output := filterAndSortImages(input, "", mockImageChecker)
 
 	expected := []string{"img2.jpg", "img3.jpg", "img10.png"}
 
