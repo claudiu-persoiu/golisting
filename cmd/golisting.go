@@ -1,7 +1,6 @@
 package main
 
 import (
-	"embed"
 	"flag"
 	"fmt"
 	"os"
@@ -10,13 +9,8 @@ import (
 	"github.com/claudiu-persoiu/golisting/internal/images"
 	"github.com/claudiu-persoiu/golisting/internal/server"
 	"github.com/claudiu-persoiu/golisting/internal/static"
+	"github.com/claudiu-persoiu/golisting/web"
 )
-
-//go:embed public
-var publicBox embed.FS
-
-//go:embed template
-var templateBox embed.FS
 
 func main() {
 
@@ -42,8 +36,8 @@ func main() {
 	}
 
 	if !*output {
-		server.StartSever(publicBox, templateBox, path, imgs, *address)
+		server.StartSever(web.PublicBox, web.TemplateBox, path, imgs, *address)
 	} else {
-		static.OutputFiles(publicBox, templateBox, path, imgs)
+		static.OutputFiles(web.PublicBox, web.TemplateBox, path, imgs)
 	}
 }
