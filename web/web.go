@@ -7,4 +7,3 @@ var PublicBox embed.FS
 
 //go:embed template
 var TemplateBox embed.FS
-
